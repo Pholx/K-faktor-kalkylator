@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>K-faktor & Böjtillägg</title>
+  <link rel="stylesheet" href="css/style.css">
+  
+  <!-- PWA Inställningar -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div class="header-icon">⚙</div>
+      <div>
+        <h1>K-FAKTOR & BÖJTILLÄGG</h1>
+        <p class="subtitle">Verklighetsnära beräknare för kantbockning · DIN · mm</p>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="kfactor">K-Faktor</button>
+    <button class="tab" data-tab="flat">Utvikningskalkyl</button>
+    <button class="tab" data-tab="ref">Referens</button>
+  </nav>
+
+  <!-- ==================== K-FAKTOR ==================== -->
+  <section id="kfactor" class="tab-content active">
+
+    <div class="card">
+      <h2>Material & metod</h2>
+      <div class="field">
+        <label for="material">Material
+          <span class="tooltip" data-tip="Materialets hårdhet (och därmed sträckgräns) påverkar hur mycket materialet sträcks och komprimeras. Detta styr i sin tur var den neutrala axeln hamnar. Hårdare material har generellt en högre K-faktor.">?</span>
+        </label>
+        <select id="material"></select>
+      </div>
+
+      <div class="field">
+        <label>Bockmetod
+          <span class="tooltip" data-tip="Luftbockning: Plåten böjs fritt över dynan utan att bottna. K-faktorn följer materialets grundkurva. Bottning: Stansen pressar ner plåten tills den ligger an mot dynans vinklade ytor, men med en spalt kvar i botten. Detta ökar trycket och flyttar den neutrala axeln något utåt (K ökar). Prägling: Stansen och dynan är matchade och plåten pressas ihop fullständigt med extrem kraft. Materialet tunnas ut i böjen och den neutrala axeln flyttas utåt (K ökar ytterligare jämfört med luftbockning). OBS: Förhärdat stål och aluminium 6061-T6 fjädrar tillbaka mycket mer och kräver överbockning.">?</span>
+        </label>
+        <div class="method-group">
+          <label class="method-card">
+            <input type="radio" name="method" value="air" checked>
+            <div class="method-svg" id="svg-air"></div>
+            <span>Luftbockning</span>
+          </label>
+          <label class="method-card">
+            <input type="radio" name="method" value="bottom">
+            <div class="method-svg" id="svg-bottom"></div>
+            <span>Bottning</span>
+          </label>
+          <label class="method-card">
+            <input type="radio" name="method" value="coin">
+            <div class="method-svg" id="svg-coin"></div>
+            <span>Prägling</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Geometri</h2>
+      <div class="row">
+        <div class="field" data-show-for="air bottom coin">
+          <label for="thickness">Plåttjocklek T (mm)
+            <span class="tooltip" data-tip="Den nominella plåttjockleken. Tillsammans med innerradien (R) bildar den förhållandet R/T, vilket är den enskilt viktigaste parametern för att bestämma K-faktorn. Toleranser i tjocklek påverkar resultatet i praktiken.">?</span>
+          </label>
+          <input type="number" id="thickness" value="4" min="0.1" step="0.1">
+        </div>
+        <div class="field" data-show-for="air">
+          <label for="vOpening">Dynöppning V (mm)
+            <span class="tooltip" data-tip="Dynans öppningsbredd (V-spårets bredd). Vid luftbockning är det denna som bestämmer den naturliga innerradien, inte stansen! Tumregel: R ≈ V × materialfaktor (t.ex. 0,16 för mjukt stål, vilket ger R = V/6).">?</span>
+          </label>
+          <input type="number" id="vOpening" value="25" min="1" step="0.5">
+        </div>
+        <div class="field" data-show-for="air bottom coin">
+          <label for="punchRadius">Stansradie (mm)
+            <span class="tooltip" data-tip="Stansens spetsradie. Vid luftbockning styr stansen bara innerradien om stansradien är STÖRRE än den naturliga radien från V-öppningen. Vid bottning och prägling är stansen och dynan matchade, så då är R = stansradie.">?</span>
+          </label>
+          <input type="number" id="punchRadius" value="0.8" min="0" step="0.1">
+        </div>
+      </div>
+
+      <div class="field" data-show-for="air" style="margin-top: 1rem;">
+        <button id="calcRadiusBtn" class="secondary">Beräkna naturlig innerradie R från V-öppning</button>
+      </div>
+
+      <div class="row">
+        <div class="field" data-show-for="air">
+          <label for="radius">Innerradie R (mm)
+            <span class="tooltip" data-tip="Plåtens invändiga radie efter bockning. Vid luftbockning bestäms den främst av dynöppningen (V), men kan aldrig bli mindre än stansradien.">?</span>
+          </label>
+          <input type="number" id="radius" value="4" min="0.1" step="0.1">
+          
+          <!-- NY: Knapp som dyker upp vid varning för stor stansradie -->
+          <button id="usePunchRadiusBtn" class="secondary" style="display:none; margin-top:0.5rem; padding:.3rem .6rem; font-size:.7rem; text-transform:none; letter-spacing:0;">
+            Använd stansradie (<span id="punchRadiusVal"></span> mm)
+          </button>
+        </div>
+        
+        <div class="field" data-show-for="air bottom coin">
+          <label for="angle">Bockvinkel (°)
+            <span class="tooltip" data-tip="Bockens önskade vinkel i grader (1–179). 90° är vanligast. Vinkeln påverkar inte K-faktorn direkt, men den påverkar hur lång bockzonen blir, vilket i sin tur ändrar Böjtillägget (BA) och Bockavdraget (BD).">?</span>
+          </label>
+          <input type="number" id="angle" value="90" min="1" max="179" step="1">
+        </div>
+      </div>
+    </div>
+
+    <div class="card result-card">
+      <h2>Resultat (K-Faktor)</h2>
+	  
+	   <!-- UPPDATERAD: Override-ruta med tips -->
+	   <div class="cal-override override-accent" style="display:flex; flex-direction:column; gap:0.75rem; margin-bottom:1rem;">
+        <div style="display:flex; flex-wrap:wrap; gap:1rem; align-items:center;">
+          <label style="display:flex; align-items:center; gap:.5rem; font-weight:600; cursor:pointer; margin:0;">
+            <input type="checkbox" id="useManualK" style="width:auto; margin:0;">
+            Använd manuellt K-värde
+          </label>
+          <div style="display:flex; align-items:center; gap:.5rem;">
+            <input type="number" id="manualK" value="0.33" min="0.1" max="0.5" step="0.01" style="width:90px; padding:.4rem .6rem; font-family:var(--mono); border:1px solid var(--border-strong); border-radius:4px;">
+          </div>
+        </div>
+        <!-- Tips-text -->
+        <div style="font-size:.75rem; color:var(--accent-dark); padding-left:.2rem;">
+          <em>Tips: Vid äkta prägling kan K-faktorn teoretiskt närma sig 0.5.</em>
+        </div>
+      </div>
+	  
+      <div id="result"></div>
+    </div>
+  </section>
+
+  <!-- ==================== PLATT LÄNGD ==================== -->
+  <section id="flat" class="tab-content">
+    
+    <div class="card">
+      <h2>Material & metod</h2>
+      <div class="field">
+        <label for="flat_material">Material</label>
+        <select id="flat_material"></select>
+      </div>
+
+      <div class="field">
+        <label>Bockmetod</label>
+        <div class="method-group">
+          <label class="method-card">
+            <input type="radio" name="flat_method" value="air" checked>
+            <div class="method-svg" id="flat_svg-air"></div>
+            <span>Luftbockning</span>
+          </label>
+          <label class="method-card">
+            <input type="radio" name="flat_method" value="bottom">
+            <div class="method-svg" id="flat_svg-bottom"></div>
+            <span>Bottning</span>
+          </label>
+          <label class="method-card">
+            <input type="radio" name="flat_method" value="coin">
+            <div class="method-svg" id="flat_svg-coin"></div>
+            <span>Prägling</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Geometri</h2>
+      <div class="row">
+        <div class="field" data-show-for="air bottom coin">
+          <label for="flat_thickness">Plåttjocklek T (mm)</label>
+          <input type="number" id="flat_thickness" value="4" min="0.1" step="0.1">
+        </div>
+        <div class="field" data-show-for="air">
+          <label for="flat_vOpening">Dynöppning V (mm)</label>
+          <input type="number" id="flat_vOpening" value="25" min="1" step="0.5">
+        </div>
+        <div class="field" data-show-for="air bottom coin">
+          <label for="flat_punchRadius">Stansradie (mm)</label>
+          <input type="number" id="flat_punchRadius" value="0.8" min="0" step="0.1">
+        </div>
+      </div>
+
+      <div class="field" data-show-for="air" style="margin-top: 1rem;">
+        <button id="flat_calcRadiusBtn" class="secondary">Beräkna naturlig innerradie R från V-öppning</button>
+      </div>
+
+      <div class="row">
+        <div class="field" data-show-for="air">
+          <label for="flat_radius">Innerradie R (mm)</label>
+          <input type="number" id="flat_radius" value="4" min="0.1" step="0.1">
+        </div>
+        <div class="field" data-show-for="air bottom coin">
+          <label for="flat_angle">Bockvinkel (°)</label>
+          <input type="number" id="flat_angle" value="90" min="1" max="179" step="1">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Flänslängder & Utvikning</h2>
+      <div class="ref-svg" id="svg-flanges" style="margin-bottom: 1.25rem;"></div>
+      <div class="row">
+        <div class="field">
+          <label for="flat_flangeA">Flänslängd A (mm)
+            <span class="tooltip" data-tip="Yttermått från ytterkant till den teoretiska skarpa kanten (virtuell skärningspunkt på insidan). Detta mått används för att räkna ut den totala platta längden.">?</span>
+          </label>
+          <input type="number" id="flat_flangeA" value="40" min="0" step="0.1">
+        </div>
+        <div class="field">
+          <label for="flat_flangeB">Flänslängd B (mm)
+            <span class="tooltip" data-tip="Yttermått på andra flänsen, samma konvention som A (till den teoretiska skarpa kanten).">?</span>
+          </label>
+          <input type="number" id="flat_flangeB" value="60" min="0" step="0.1">
+        </div>
+      </div>
+    </div>
+
+    <div class="card result-card">
+      <h2>Beräknad utvikning</h2>
+      <div id="result-flat"></div>
+    </div>
+  </section>
+
+  <!-- ==================== REFERENS ==================== -->
+  <section id="ref" class="tab-content">
+    <div class="card">
+      <h2>Så funkar K-faktorn</h2>
+      <div class="ref-svg" id="svg-kprinciple"></div>
+      <p>K-faktorn beskriver var den <strong>neutrala axeln</strong> ligger i plåten. Vid bockning sträcks utsidan och komprimeras insidan – men i mitten finns ett skikt som varken sträcks eller trycks ihop.</p>
+      <p class="formula">K = t / T</p>
+      <p>där <em>t</em> är avståndet från insidan till neutrala axeln och <em>T</em> är plåttjockleken. K = 0,5 betyder att neutrala axeln ligger mitt i plåten.</p>
+    </div>
+    <div class="card">
+      <h2>V-öppning och innerradie</h2>
+      <div class="ref-svg" id="svg-vradius"></div>
+      <p>Vid luftbockning bestäms innerradien främst av <strong>V-öppningen</strong>, inte av stansen. Tumregeln är R ≈ V/6 för mjukt stål, men faktorn varierar:</p>
+      <table class="ref-table">
+        <thead><tr><th>Material</th><th>R/V-faktor</th></tr></thead>
+        <tbody>
+          <tr><td>Mjukt stål</td><td>0,16</td></tr>
+          <tr><td>Kallvalsat stål</td><td>0,15</td></tr>
+          <tr><td>Rostfritt</td><td>0,20</td></tr>
+          <tr><td>Aluminium</td><td>0,12</td></tr>
+          <tr><td>Koppar / Mässing</td><td>0,16</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h2>Formler</h2>
+      <p><strong>Böjtillägg (BA):</strong></p>
+      <p class="formula">BA = (π/180) · vinkel · (R + K · T)</p>
+      <p><strong>Bockavdrag (BD):</strong></p>
+      <p class="formula">BD = 2 · OSSB − BA &nbsp;&nbsp;|&nbsp;&nbsp; OSSB = tan(vinkel/2) · (R + T)</p>
+      <p><strong>Platt längd:</strong></p>
+      <p class="formula">L = A + B − BD</p>
+    </div>
+    <div class="card">
+      <h2>Ansvarsfriskrivning</h2>
+      <p class="warning">
+        ⚠️ Alla värden är teoretiska uppskattningar. Verklig K-faktor påverkas av verktygsslitage,
+        materialbatch, fiberriktning, dynöppning och exakt metod. Gör alltid en testbock vid
+        produktionskritiska detaljer.
+      </p>
+    </div>
+  </section>
+
+  <script src="js/materials.js"></script>
+  <script src="js/calculations.js"></script>
+  <script src="js/svg.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
