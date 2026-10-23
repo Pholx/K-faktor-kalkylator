@@ -1,5 +1,7 @@
 # K-Faktor & Böjtillägg (Kalkylator för kantbockning)
 
+https://pholx.github.io/K-faktor-kalkylator/
+
 En verklighetsnära, webbaserad kalkylator för kantbockning av plåt. 
 Appen är byggd som en **PWA (Progressive Web App)**, 
 vilket innebär att den kan installeras på din surfplatta eller telefon och köras helt offline i verkstaden.
